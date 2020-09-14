@@ -1,0 +1,175 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title></title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.10.1/jquery.min.js"></script>
+    <style>
+
+        .center {
+            margin: auto;
+            width: 700px;
+            height: auto;
+            border: 1px solid black;
+            margin-top: 100px;
+            padding: 10px;
+        }
+
+        table {
+            font-family: arial, sans-serif;
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        td, th {
+            border: 1px solid #dddddd;
+            text-align: left;
+            padding: 8px;
+        }
+
+        tr:nth-child(even) {
+            background-color: #dddddd;
+        }
+     
+    </style>
+    <script>
+        var OrderList;
+
+        $(document).ready(function () {
+            var url = "https://localhost:44369/api/Material/GetProductDropdownModel";
+
+           
+            try {
+                $.getJSON(url, function (data) {
+                    $.each(data, function (index, value) {
+                        $('#ddlProduct').append('<option value="' + value.OrderNum + '">' + value.OrderNum + ' - ' + value.MaterialNo + ' - ' + value.MaterialDesc + '</option>');
+                    });
+                });
+            } catch (err) {
+                alert(err.message);
+            }
+           
+        });
+
+
+        function GetSelectedTextValue(ddlProduct) {
+            var selectedText = ddlProduct.options[ddlProduct.selectedIndex].innerHTML;
+            $('#date').html('');
+            tablebind(ddlProduct.value);
+        }
+
+        function tablebind(OrderNum) {
+
+            var url = "https://localhost:44369/api/Material/GetSelectedOrder?OrderNum=" + OrderNum;
+            OrderList = null;
+            try {
+                $.getJSON(url, function (data) {
+                    if (data != null && data.length > 0) {
+                        OrderList = data;
+                        var temp = "";
+                        var obj = DataTemplate;
+                        $.each(data, function (index, value) {
+                            var sb = DataInnerTemplate;
+                            sb = sb.replace("{col1}", value.MaterialNo)
+                            sb = sb.replace("{col2}", value.MaterialDesc)
+                            sb = sb.replace("{col3}", value.Batch)
+                            sb = sb.replace("{col4}", value.Qty)
+                            temp += sb;
+
+                        });
+
+                        $('#grdProduct').html(DataTemplate.replace("{data}", temp));
+                    }
+                    else {
+                        $('#grdProduct').html("No Data");
+                    }
+
+                });
+            } catch (err) {
+                alert(err.message);
+            }
+
+           
+        }  
+
+        function calculateDate() {
+            if (OrderList != null) {
+                const uniqueMaterialNo = [...new Set(OrderList.map(obj => obj.MaterialNo))];
+                const uniqueBatch = [...new Set(OrderList.map(obj => obj.Batch))];
+                if (uniqueMaterialNo.length == 1 && uniqueBatch.length == 1) {
+                    $('#date').html(getCase1ProdDate(OrderList[0].ExpiryDate, OrderList[0].ShelfLife).toJSON().slice(0, 10));
+                } else {
+                    var dates = [];
+                    $.each(OrderList, function (index, value2) {
+                        dates.push(getProdDate(value2.ExpiryDate, value2.ShelfLife));
+                    });
+                    if (uniqueMaterialNo.length == 1 && uniqueBatch.length > 1) {
+                        $('#date').html(dates.sort()[0].toJSON().slice(0, 10));
+                    } else {
+                        $('#date').html(dates.reverse()[0].toJSON().slice(0, 10));
+                    }
+
+                }
+
+            }
+          
+        }
+        Date.prototype.addDays = function (num) {
+            var value = this.valueOf();
+            value += 86400000 * num;
+            return new Date(value);
+        }
+
+        function getCase1ProdDate(datePassed, Shelf) {
+            //Production date = Expiry date-Shelf Life
+            var date1 = new Date(datePassed.substring(0, 4), datePassed.substring(4, 6)-1, datePassed.substring(6, 8));
+            if (Shelf != null && Shelf > 0)
+                return date1.addDays(-Shelf);
+            else
+                return date1;
+        }
+
+        function getProdDate(datePassed, Shelf) {
+            //Production date = Expiry date-Shelf Life
+            var date1 = new Date(datePassed.substring(0, 4), datePassed.substring(4, 6) - 1, datePassed.substring(6, 8));
+            if (Shelf != null && Shelf > 0)
+                return date1.addDays(-Shelf);
+            else
+                return date1;
+        }
+
+        var DataTemplate = `
+                <table><tr><th>Raw Material Code</th><th>material Description</th><th>Batch</th><th>Qty</th></tr>{data}</table>
+            `;
+
+        var DataInnerTemplate = `
+             <tr> <td>{col1}</td><td>{col2}</td><td>{col3}</td><td>{col4}</td></tr>
+        `;
+    </script>
+</head>
+<body>
+    <div class="center">
+        <div style="float:left; width:100px;padding-top:3px;padding-left:100px;">
+            Product Code
+        </div>
+        <div style="float:left;width:400px">
+            <select id="ddlProduct" name="cars" style="padding:3px;width:100%" onchange="GetSelectedTextValue(this)">
+                <option value="">-- Select --</option>
+            </select>
+        </div>
+        <div style="clear:both;padding-top:20px;"></div>
+        <div style="float:left;width:200px">
+            <button id="btnCalc" style="padding:5px;" onclick="calculateDate()">Calculate Production Date</button>
+        </div>
+        <div style="float:left;width:400px;padding:5px;" id="date">
+            
+        </div>
+        <div style="clear:both;"></div>
+        <div style="clear:both;padding-top:20px;"></div>
+        <div id="grdProduct">
+
+        </div>
+        
+    </div>
+</body>
+</html>
